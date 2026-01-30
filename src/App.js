@@ -9,7 +9,10 @@ import config from "./config";
 import "./App.css";
 
 function App() {
-  const [systemHealth, setSystemHealth] = useState(null);
+  const [systemHealth, setSystemHealth] = useState({
+    status: "checking",
+    services: { api_gateway: "unknown", retrieval_service: "unknown" }
+  });
   const [isQueryLoading, setIsQueryLoading] = useState(false);
   const [isUploadLoading, setIsUploadLoading] = useState(false);
   const [queryResult, setQueryResult] = useState(null);
