@@ -8,10 +8,10 @@ const DebugPanel = ({ result }) => {
   }
 
   // Extract debug information
-  const hasResults = result.results && result.results.length > 0;
+  const hasResults = (result.results && result.results.length > 0) || (result.sources && result.sources.length > 0);
   const similarityScoreRange = result.similarity_score_range || "N/A";
   const responseTime = result.response_time_ms || "N/A";
-  const retrievedCount = result.retrieved_count || 0;
+  const retrievedCount = result.total_sources || result.retrieved_count || 0;
 
   // Check if retrieval was gated
   const isGated = result.retrieval_gated || false;
@@ -20,7 +20,6 @@ const DebugPanel = ({ result }) => {
   // Check if quality check failed
   const qualityCheckFailed =
     result.query_analysis?.quality_check_failed || false;
-  const failureReason = result.query_analysis?.failure_reason || "N/A";
 
   return (
     <div className="debug-panel">
@@ -44,7 +43,7 @@ const DebugPanel = ({ result }) => {
           </li>
           <li>
             Answer Generation:{" "}
-            {result.generated_answer ? "Completed" : "Skipped"}
+            {(result.answer || result.generated_answer) ? "Completed" : "Skipped"}
           </li>
           <li>Source Citation: {result.sources ? "Completed" : "Skipped"}</li>
         </ul>
