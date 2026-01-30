@@ -5,11 +5,13 @@ import QueryBox from "./components/QueryBox";
 import AnswerPanel from "./components/AnswerPanel";
 import SourcesPanel from "./components/SourcesPanel";
 import DebugPanel from "./components/DebugPanel";
+import config from "./config";
 import "./App.css";
 
 function App() {
   const [systemHealth, setSystemHealth] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isQueryLoading, setIsQueryLoading] = useState(false);
+  const [isUploadLoading, setIsUploadLoading] = useState(false);
   const [queryResult, setQueryResult] = useState(null);
   const [documentStatus, setDocumentStatus] = useState({});
 
@@ -17,7 +19,7 @@ function App() {
   useEffect(() => {
     const fetchHealth = async () => {
       try {
-        const response = await fetch("http://localhost:3000/health");
+        const response = await fetch(`${config.API_BASE_URL}/health`);
         const data = await response.json();
         setSystemHealth(data);
       } catch (error) {
@@ -55,71 +57,75 @@ function App() {
   }, []);
 
   const handleQuerySubmit = async (query, topK) => {
-    setIsLoading(true);
+    setIsQueryLoading(true);
     try {
-      const response = await fetch("http://localhost:3000/api/v1/query-llm", {
+      // Always use the LLM endpoint for generating answers
+      const response = await fetch(`${config.API_BASE_URL}/api/v1/query-llm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, topK, userId: "technical-user" }),
       });
 
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+      
       const data = await response.json();
       setQueryResult(data);
     } catch (error) {
-      console.error("Error querying:", error);
-      try {
-        const response = await fetch("http://localhost:3000/api/v1/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, topK, userId: "technical-user" }),
-        });
-
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        setQueryResult(data);
-      } catch (fallbackError) {
-        console.error("Error with fallback query:", fallbackError);
-        setQueryResult({
-          error: error.message,
-          results: [],
-          generated_answer: "Error occurred while processing query",
-        });
-      }
+      console.error("Error querying LLM:", error);
+      setQueryResult({
+        error: error.message,
+        answer: "Error occurred while processing query",
+        sources: [],
+        retrieval_gated: true,
+        gating_reason: "LLM service unavailable"
+      });
     } finally {
-      setIsLoading(false);
+      setIsQueryLoading(false);
     }
   };
 
   const handleDocumentUpload = async (content, metadata) => {
-    setIsLoading(true);
+    setIsUploadLoading(true);
     try {
-      const response = await fetch("http://localhost:3000/api/v1/documents", {
+      // Increase timeout to 300 seconds (5 minutes) for large content processing
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
+
+      const response = await fetch(`${config.API_BASE_URL}/api/v1/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content, metadata }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       alert(`Document uploaded successfully: ${data.message}`);
 
-      const healthResponse = await fetch("http://localhost:3000/health");
+      const healthResponse = await fetch(`${config.API_BASE_URL}/health`);
       const healthData = await healthResponse.json();
       setSystemHealth(healthData);
     } catch (error) {
-      console.error("Error uploading document:", error);
-      alert(`Error uploading document: ${error.message}`);
+      if (error.name === 'AbortError') {
+        console.error("Upload timed out:", error);
+        alert("Upload timed out. Large documents may take several minutes to process.");
+      } else {
+        console.error("Error uploading document:", error);
+        alert(`Error uploading document: ${error.message}`);
+      }
     } finally {
-      setIsLoading(false);
+      setIsUploadLoading(false);
     }
   };
 
   const handleFileUpload = async (file, metadata) => {
-    setIsLoading(true);
+    setIsUploadLoading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -127,10 +133,17 @@ function App() {
       if (metadata.author) formData.append("author", metadata.author);
       if (metadata.source) formData.append("source", metadata.source);
 
-      const response = await fetch("http://localhost:3000/api/v1/upload-file", {
+      // Increase timeout to 300 seconds (5 minutes) for large file processing
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
+
+      const response = await fetch(`${config.API_BASE_URL}/api/v1/upload-file`, {
         method: "POST",
         body: formData,
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -144,14 +157,19 @@ function App() {
       const data = await response.json();
       alert(`File uploaded successfully: ${data.message}`);
 
-      const healthResponse = await fetch("http://localhost:3000/health");
+      const healthResponse = await fetch(`${config.API_BASE_URL}/health`);
       const healthData = await healthResponse.json();
       setSystemHealth(healthData);
     } catch (error) {
-      console.error("Error uploading file:", error);
-      alert(`Error uploading file: ${error.message}`);
+      if (error.name === 'AbortError') {
+        console.error("Upload timed out:", error);
+        alert("Upload timed out. Large files may take several minutes to process.");
+      } else {
+        console.error("Error uploading file:", error);
+        alert(`Error uploading file: ${error.message}`);
+      }
     } finally {
-      setIsLoading(false);
+      setIsUploadLoading(false);
     }
   };
 
@@ -167,11 +185,11 @@ function App() {
         <DocumentUpload
           onUpload={handleDocumentUpload}
           onFileUpload={handleFileUpload}
-          isLoading={isLoading}
+          isLoading={isUploadLoading}
           documentStatus={documentStatus}
         />
 
-        <QueryBox onSubmit={handleQuerySubmit} isLoading={isLoading} />
+        <QueryBox onSubmit={handleQuerySubmit} isLoading={isQueryLoading} />
 
         {queryResult && (
           <div className="results-container">
