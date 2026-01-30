@@ -8,14 +8,5 @@
         "distDir": "build"
       }
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
-  "github": {
-    "silent": true
-  }
+  ]
 }
