@@ -64,6 +64,18 @@ const QueryBox = ({ onSubmit, isLoading }) => {
           )}
         </button>
       </form>
+      <div
+        style={{
+          fontSize: "12px",
+          color: "#666",
+          marginTop: "10px",
+          fontStyle: "italic",
+          textAlign: "center",
+        }}
+      >
+        Pipeline: Query Analysis → Semantic Retrieval → Retrieval Validation →
+        Answer Generation → Source Citation
+      </div>
     </div>
   );
 };

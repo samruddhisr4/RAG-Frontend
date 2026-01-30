@@ -1,58 +1,104 @@
 import React, { useState } from "react";
 
 const DebugPanel = ({ result }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [showRawData, setShowRawData] = useState(false);
 
   if (result.error) {
-    return null; // Don't show debug panel if there's an error
+    return null;
   }
 
-  const results = result.results || [];
+  // Extract debug information
+  const hasResults = result.results && result.results.length > 0;
+  const similarityScoreRange = result.similarity_score_range || "N/A";
+  const responseTime = result.response_time_ms || "N/A";
+  const retrievedCount = result.retrieved_count || 0;
+
+  // Check if retrieval was gated
+  const isGated = result.retrieval_gated || false;
+  const gatingReason = result.gating_reason || "N/A";
+
+  // Check if quality check failed
+  const qualityCheckFailed =
+    result.query_analysis?.quality_check_failed || false;
+  const failureReason = result.query_analysis?.failure_reason || "N/A";
 
   return (
-    <div className="section">
-      <h2 className="section-title">
-        <button
-          className="debug-toggle"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-expanded={isOpen}
-        >
-          {isOpen ? "Hide" : "Show"} Debug / Explainability
-        </button>
-      </h2>
+    <div className="debug-panel">
+      <h2 className="section-title">Debug / Explainability</h2>
 
-      {isOpen && (
-        <div className="debug-content">
-          <h3>Raw Retrieved Chunks</h3>
+      <div className="debug-content">
+        <h3>Pipeline Status</h3>
+        <ul>
+          <li>
+            Query Analysis:{" "}
+            {result.query_analysis ? "Completed" : "Not available"}
+          </li>
+          <li>Semantic Retrieval: {hasResults ? "Completed" : "Failed"}</li>
+          <li>
+            Retrieval Validation:{" "}
+            {isGated
+              ? "Failed (Gated)"
+              : qualityCheckFailed
+              ? "Failed (Quality Check)"
+              : "Passed"}
+          </li>
+          <li>
+            Answer Generation:{" "}
+            {result.generated_answer ? "Completed" : "Skipped"}
+          </li>
+          <li>Source Citation: {result.sources ? "Completed" : "Skipped"}</li>
+        </ul>
 
-          {results.length === 0 ? (
-            <p>No chunks retrieved for this query.</p>
-          ) : (
-            results.map((item, index) => (
-              <div key={index} className="raw-result">
-                <strong>
-                  Chunk {index + 1} (Score:{" "}
-                  {item.score !== undefined ? item.score.toFixed(4) : "N/A"})
-                </strong>
-                <br />
-                <strong>ID:</strong> {item.id || "N/A"}
-                <br />
-                <strong>Document:</strong>{" "}
-                {item.metadata?.title ||
-                  item.metadata?.source_file ||
-                  "metadata unavailable"}
-                <br />
-                <strong>Content:</strong>{" "}
-                {item.content || "Content unavailable"}
-                <br />
-              </div>
-            ))
+        <h3>Retrieval Quality</h3>
+        <ul>
+          <li>Retrieved Chunks: {retrievedCount}</li>
+          <li>Similarity Score Range: {similarityScoreRange}</li>
+          <li>Response Time: {responseTime}ms</li>
+          <li>Deduplication Applied: Yes (Post-retrieval optimization)</li>
+          <li>Document Grouping: Yes (Max 2 chunks per document)</li>
+        </ul>
+
+        {isGated && (
+          <div className="gating-info">
+            <h3>Retrieval Gating</h3>
+            <p>
+              <strong>Status:</strong> {isGated ? "Applied" : "Not applied"}
+            </p>
+            <p>
+              <strong>Reason:</strong> {gatingReason}
+            </p>
+          </div>
+        )}
+
+        <div style={{ marginTop: "15px" }}>
+          <button
+            onClick={() => setShowRawData(!showRawData)}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            {showRawData ? "Hide" : "Show"} Raw Response Data
+          </button>
+
+          {showRawData && (
+            <pre
+              style={{
+                marginTop: "10px",
+                fontSize: "12px",
+                maxHeight: "200px",
+                overflow: "auto",
+              }}
+            >
+              {JSON.stringify(result, null, 2)}
+            </pre>
           )}
-
-          <h3>Full Response Data</h3>
-          <pre className="raw-result">{JSON.stringify(result, null, 2)}</pre>
         </div>
-      )}
+      </div>
     </div>
   );
 };

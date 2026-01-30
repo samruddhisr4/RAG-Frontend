@@ -36,8 +36,19 @@ const SystemStatus = ({ health }) => {
         </span>
       </div>
 
+      {/* Document-level statistics */}
       <div className="status-card healthy">
         <span>Indexed Documents: {system_stats?.indexed_documents || 0}</span>
+      </div>
+
+      {/* Chunk-level statistics */}
+      {/* <div className="status-card healthy">
+        <span>Indexed Chunks: {system_stats?.indexed_chunks || 0}</span>
+      </div> */}
+
+      {/* Vector-level statistics */}
+      <div className="status-card healthy">
+        <span>FAISS Vectors: {system_stats?.faiss_vectors || 0}</span>
       </div>
 
       <div className="status-card healthy">
